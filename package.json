@@ -1,0 +1,17 @@
+{
+  "name": "cassandra-tutorial",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon orm-approach"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cassandra-driver": "^3.5.0",
+    "express-cassandra": "^2.2.3",
+    "mongodb": "^3.1.8",
+    "mongoose": "^5.3.4"
+  }
+}
