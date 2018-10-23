@@ -177,24 +177,38 @@ function startMigration() {
         for(var i = 0; i < numberOfBatches; i++) {
           batches.push([]);
         }
-        var batchCounter = 0;
+        var batchCreationCounter = 0;
         for(var i = 0; i < results.length; i++) {
-          batches[batchCounter].push(results[i]);
-          if(batches[batchCounter].length === batchSizeThreshold) batchCounter++;
+          batches[batchCreationCounter].push(results[i]);
+          if(batches[batchCreationCounter].length === batchSizeThreshold) batchCreationCounter++;
         }
-        console.log('BATCHES');
-        console.log(batches);
-        const queries = [];
-        for(var i = 0; i < results.length; i++) {
-          queries.push({query: query, params: eval(queryParamsString)});
-        }
+        var batchInsertionCounter = 0;
+
         const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
-        client.batch(queries, {prepare: true}, function(err) {
-          if(err) {
-            console.log('ERROR WITH BATCH INSERTION (airports), OMG: ', err);
+
+        function processNextBatch() {
+          const queries = [];
+          for(var i = 0; i < batches[batchInsertionCounter].length; i++) {
+            queries.push({query: query, params: eval(queryParamsString)});
           }
-          console.log('Batch insert complete (airports)');
-        });
+          client.batch(queries, {prepare: true}, function(err) {
+            const batchInfo = 'batch ' + (batchInsertionCounter + 1) + '/' + batches.length + ', batch size: ' + batches[batchInsertionCounter].length;
+            if(err) {
+              console.log('Error completing ' + batchInfo + ':');
+              console.log(err);
+            }
+            console.log('Completed ' + batchInfo);
+            if(batchInsertionCounter < batches.length - 1) {
+              batchInsertionCounter++;
+              processNextBatch();
+            } else {
+              console.log('All batches complete');
+            }
+          });
+        }
+
+        processNextBatch(); // kicking it off
+
         // CASSANDRA END
       });
     });
