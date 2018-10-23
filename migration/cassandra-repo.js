@@ -45,79 +45,6 @@ const models = ExpressCassandra.createClient({
   }
 });
 
-// IMPORTANT: column names are CASE INSENSITIVE when running cql queries, unless if you always enclose them in quotes; it might be better to simply snake_case them
-// const AircraftModel = models.loadSchema('AircraftModel', {
-//   fields: {
-//     id: {
-//       type: 'uuid',
-//       default: {'$db_function': 'uuid()'}
-//     },
-//     overrideName: 'text',
-//     //TODO icao: { type: String, ref:"AircraftPerformance", index: true },
-//     averageSpeed: 'float',
-//     aircraftClass: 'float',
-//     defaultHourly: 'float',
-//     defaultSeats: 'int',
-//     lastCreated: 'date',
-//     locked: 'boolean',
-//     createdAt: {
-//         type: "timestamp",
-//         default: {"$db_function": "toTimestamp(now())"}
-//     },
-//     updatedAt: { // TODO ensure this prop gets manually updated every time a row gets updated
-//         type: "timestamp"
-//     }
-//   },
-//   key: ['id'],
-//   table_name: 'aircraft_models',
-//   indexes: ['overrideName', 'aircraftClass', 'lastCreated', 'locked']
-// });
-//
-// AircraftModel.syncDB(function(err, result) {
-//   if(err) throw err;
-//   console.log('DB sync successful (aircraft_models)');
-// });
-//
-//
-// const Aircraft = models.loadSchema('Aircraft', {
-//   fields: {
-//     id: 'text',
-//     deviceId: 'text',
-//     internalId: 'text',
-//     manufactureModel : { type: 'text', default: ''},
-//     capacity: 'int', // User input
-//     price: 'int',
-//     ferryPrice: 'int',
-//     ownerPrice: 'int',
-//     cruiseSpeed: 'float',
-//     maxFlightLevel: 'float',
-//     engineType: 'int',
-//     alias: {type: 'text', default: ''},
-//     availableForCharter: {type: 'boolean', default: false},
-//     ownedBy: 'int',
-//     displayName:  'text',
-//     overnightCharge: 'float',
-//     transientRadius: 'float',
-//     interiorRefurbishment: 'date',
-//     exteriorRefurbishment: 'date',
-//     disabled: 'boolean',
-//     mdlCode: 'text',
-//     mfrCode: 'text',
-//     source: 'text',
-//     lastLocation: 'float',
-//     lastCreated: 'date',
-//     locked: 'boolean'
-//   },
-//   key: ['id'],
-//   table_name: 'aircraft',
-//   indexes: ['deviceId']
-// });
-//
-// Aircraft.syncDB(function(err, result) {
-//   if(err) throw err;
-//   console.log('DB sync successful (aircraft)');
-// });
-
 // NOTE: inserting a set through cql is done using {}, NOT [] (very intuitive, thank you Cassandra.. - notice the sarcasm)
 const Airport = models.loadSchema('Airport', {
   fields: {
@@ -210,4 +137,52 @@ const Airport = models.loadSchema('Airport', {
 Airport.syncDB(function(err, result) {
   if(err) throw err;
   console.log('DB sync successful (airports)');
+  startMigration();
 });
+
+// wrapper for everything that happens after schema gets synced
+function startMigration() {
+  const schemaFields = Airport._driver._properties.schema.fields;
+  const fields = [];
+  for(var prop in schemaFields) {
+    fields.push(prop);
+  }
+  const fieldsString = '("' + fields.join('", "') + '")';
+  var questionMarksString = '(';
+  for(var i = 0; i < fields.length; i++) {
+  	if(i !== fields.length - 1) questionMarksString += '?, ';
+  	else questionMarksString += '?)';
+  }
+  const query = 'INSERT INTO airports' + fieldsString + 'VALUES' + questionMarksString;
+  const cassandra = require('cassandra-driver');
+
+  const Uuid = cassandra.types.Uuid;
+  var queryParamsString = '[Uuid.random()';
+
+// deliberately starting from 1 (skipping id)
+  for(var i = 1; i < fields.length; i++) {
+    queryParamsString += ', results[i].' + fields[i];
+    if(i === fields.length - 1) queryParamsString += ']';
+  }
+
+  const MongoClient = require('mongodb').MongoClient;
+  MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
+      const dbo = db.db("airlines");
+      dbo.collection('airports').find({}).limit(40).toArray(function(err, results) {
+        if(err) throw err;
+        // CASSANDRA START
+        const queries = [];
+        for(var i = 0; i < results.length; i++) {
+          queries.push({query: query, params: eval(queryParamsString)});
+        }
+        const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
+        client.batch(queries, {prepare: true}, function(err) {
+          if(err) {
+            console.log('ERROR WITH BATCH INSERTION (airports), OMG: ', err);
+          }
+          console.log('Batch insert complete (airports)');
+        });
+        // CASSANDRA END
+      });
+    });
+}

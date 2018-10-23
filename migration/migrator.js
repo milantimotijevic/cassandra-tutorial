@@ -76,11 +76,11 @@ MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
     dbo.collection('airports').find({}).limit(30).toArray(function(err, results) {
       if(err) throw err;
       // CASSANDRA START
-      const query = 'INSERT INTO airports("id", "createdAt", "scheduledService", "keywords", "iata", "isoCountry", "location", "name", "nfdc", "updatedAt", "city", "isoState", "tzName", "lastCreated", "md5", "gpsCode", "localCode") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+      const query = 'INSERT INTO airports("id", "createdAt", "scheduledService", "keywords", "iata", "isoCountry", "location", "name", "updatedAt", "city", "isoState", "tzName", "lastCreated", "md5", "gpsCode", "localCode") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
       //const query = 'INSERT INTO airports("id", "createdAt", "scheduledService", "keywords", "iata", "isoCountry", "name", "typeInt", "nfdc", "updatedAt", "details", "supportedAircrafts", "city", "isoState", "tzName", "lastCreated", "md5", "gpsCode", "localCode") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
       const queries = [];
       for(var i = 0; i < results.length; i++) {
-        queries.push({query: query, params: [Uuid.random(), results[i].createdAt, results[i].scheduledService, results[i].keywords, results[i].iata, results[i].isoCountry, results[i].location, results[i].name, results[i].nfdc, results[i].updatedAt, results[i].city, results[i].isoState, results[i].tzName, results[i].lastCreated, results[i].md5, results[i].gpsCode, results[i].localCode]});
+        queries.push({query: query, params: [Uuid.random(), results[i].createdAt, results[i].scheduledService, results[i].keywords, results[i].iata, results[i].isoCountry, results[i].location, results[i].name, results[i].updatedAt, results[i].city, results[i].isoState, results[i].tzName, results[i].lastCreated, results[i].md5, results[i].gpsCode, results[i].localCode]});
         //queries.push({query: query, params: [results[i]._id, results[i].createdAt, results[i].scheduledService, results[i].keywords, results[i].iata, results[i].isoCountry, results[i].name, results[i].typeInt, results[i].nfdc, results[i].updatedAt, results[i].details, results[i].supportedAircrafts, results[i].city, results[i].isoState, results[i].tzName, results[i].lastCreated, results[i].md5, results[i].gpsCode, results[i].gpsCode, results[i].localCode]});
       }
       const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
