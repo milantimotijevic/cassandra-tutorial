@@ -168,9 +168,22 @@ function startMigration() {
   const MongoClient = require('mongodb').MongoClient;
   MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
       const dbo = db.db("airlines");
-      dbo.collection('airports').find({}).limit(40).toArray(function(err, results) {
+      dbo.collection('airports').find({}).toArray(function(err, results) {
         if(err) throw err;
         // CASSANDRA START
+        const batches = [];
+        const batchSizeThreshold = 40;
+        const numberOfBatches = Math.ceil(results.length / batchSizeThreshold);
+        for(var i = 0; i < numberOfBatches; i++) {
+          batches.push([]);
+        }
+        var batchCounter = 0;
+        for(var i = 0; i < results.length; i++) {
+          batches[batchCounter].push(results[i]);
+          if(batches[batchCounter].length === batchSizeThreshold) batchCounter++;
+        }
+        console.log('BATCHES');
+        console.log(batches);
         const queries = [];
         for(var i = 0; i < results.length; i++) {
           queries.push({query: query, params: eval(queryParamsString)});
