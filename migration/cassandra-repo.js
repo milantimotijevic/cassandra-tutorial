@@ -131,14 +131,22 @@ const Airport = models.loadSchema('Airport', {
     updatedBy: 'text'
   },
   key: ['id'],
-  table_name: 'airports'
+  table_name: 'airports',
+  options: {
+    timestamps: {
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt'
+    }
+  }
 });
 
 Airport.syncDB(function(err, result) {
   if(err) throw err;
   console.log('DB sync successful (airports)');
-  startMigration();
+  //startMigration();
 });
+
+module.exports = models;
 
 // wrapper for everything that happens after schema gets synced
 function startMigration() {

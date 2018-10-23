@@ -68,28 +68,85 @@
 //       // CASSANDRA END
 //     });
 //   });
-const cassandra = require('cassandra-driver');
-const Uuid = cassandra.types.Uuid;
-const MongoClient = require('mongodb').MongoClient;
-MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
-    const dbo = db.db("airlines");
-    dbo.collection('airports').find({}).limit(30).toArray(function(err, results) {
-      if(err) throw err;
-      // CASSANDRA START
-      const query = 'INSERT INTO airports("id", "createdAt", "scheduledService", "keywords", "iata", "isoCountry", "location", "name", "updatedAt", "city", "isoState", "tzName", "lastCreated", "md5", "gpsCode", "localCode") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-      //const query = 'INSERT INTO airports("id", "createdAt", "scheduledService", "keywords", "iata", "isoCountry", "name", "typeInt", "nfdc", "updatedAt", "details", "supportedAircrafts", "city", "isoState", "tzName", "lastCreated", "md5", "gpsCode", "localCode") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-      const queries = [];
-      for(var i = 0; i < results.length; i++) {
-        queries.push({query: query, params: [Uuid.random(), results[i].createdAt, results[i].scheduledService, results[i].keywords, results[i].iata, results[i].isoCountry, results[i].location, results[i].name, results[i].updatedAt, results[i].city, results[i].isoState, results[i].tzName, results[i].lastCreated, results[i].md5, results[i].gpsCode, results[i].localCode]});
-        //queries.push({query: query, params: [results[i]._id, results[i].createdAt, results[i].scheduledService, results[i].keywords, results[i].iata, results[i].isoCountry, results[i].name, results[i].typeInt, results[i].nfdc, results[i].updatedAt, results[i].details, results[i].supportedAircrafts, results[i].city, results[i].isoState, results[i].tzName, results[i].lastCreated, results[i].md5, results[i].gpsCode, results[i].gpsCode, results[i].localCode]});
-      }
-      const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
-      client.batch(queries, {prepare: true}, function(err) {
-        if(err) {
-          console.log('ERROR WITH BATCH INSERTION, OMG: ', err);
+
+const models = require('./cassandra-repo');
+const Airport = models.instance.Airport;
+Airport.find({}, {raw: true}, function(err, results) {
+  console.log(results[0]);
+});
+
+//startMigration();
+
+// wrapper for everything that happens after schema gets synced
+function startMigration() {
+  const schemaFields = Airport._driver._properties.schema.fields;
+  const fields = [];
+  for(var prop in schemaFields) {
+    fields.push(prop);
+  }
+  const fieldsString = '("' + fields.join('", "') + '")';
+  var questionMarksString = '(';
+  for(var i = 0; i < fields.length; i++) {
+  	if(i !== fields.length - 1) questionMarksString += '?, ';
+  	else questionMarksString += '?)';
+  }
+  const query = 'INSERT INTO airports' + fieldsString + 'VALUES' + questionMarksString;
+  const cassandra = require('cassandra-driver');
+
+  const Uuid = cassandra.types.Uuid;
+  var queryParamsString = '[Uuid.random()';
+
+// deliberately starting from 1 (skipping id)
+  for(var i = 1; i < fields.length; i++) {
+    queryParamsString += ', results[i].' + fields[i];
+    if(i === fields.length - 1) queryParamsString += ']';
+  }
+
+  const MongoClient = require('mongodb').MongoClient;
+  MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
+      const dbo = db.db("airlines");
+      dbo.collection('airports').find({}).toArray(function(err, results) {
+        if(err) throw err;
+        // CASSANDRA START
+        const batches = [];
+        const batchSizeThreshold = 40;
+        const numberOfBatches = Math.ceil(results.length / batchSizeThreshold);
+        for(var i = 0; i < numberOfBatches; i++) {
+          batches.push([]);
         }
-        console.log('Batch insert completed (airports)');
+        var batchCreationCounter = 0;
+        for(var i = 0; i < results.length; i++) {
+          batches[batchCreationCounter].push(results[i]);
+          if(batches[batchCreationCounter].length === batchSizeThreshold) batchCreationCounter++;
+        }
+        var batchInsertionCounter = 0;
+
+        const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
+
+        function processNextBatch() {
+          const queries = [];
+          for(var i = 0; i < batches[batchInsertionCounter].length; i++) {
+            queries.push({query: query, params: eval(queryParamsString)});
+          }
+          client.batch(queries, {prepare: true}, function(err) {
+            const batchInfo = 'batch ' + (batchInsertionCounter + 1) + '/' + batches.length + ', batch size: ' + batches[batchInsertionCounter].length;
+            if(err) {
+              console.log('Error completing ' + batchInfo + ':');
+              console.log(err);
+            }
+            console.log('Completed ' + batchInfo);
+            if(batchInsertionCounter < batches.length - 1) {
+              batchInsertionCounter++;
+              processNextBatch();
+            } else {
+              console.log('All batches complete');
+            }
+          });
+        }
+
+        processNextBatch(); // kicking it off
+
+        // CASSANDRA END
       });
-      // CASSANDRA END
     });
-  });
+}
