@@ -1,5 +1,72 @@
-const query = 'INSERT INTO aircrafts("id", "alias", "availableForCharter", "capacity", "cruiseSpeed", "deviceId", "disabled", "displayName", "engineType", "exteriorRefurbishment", "ferryPrice", "interiorRefurbishment", "internalId", "lastCreated", "lastLocation", "locked", "manufactureModel", "maxFlightLevel", "mdlCode", "mfrCode", "overnightCharge", "ownedBy", "ownerPrice", "price", "source", "transientRadius") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-const queries = [];
-for(var i = 0; i < results.length; i++) {
-  queries.push({query: query, params: [results[i]._id, results[i].alias, results[i].availableForCharter, results[i].capacity, results[i].cruiseSpeed, results[i].deviceId, results[i].disabled, results[i].displayName, results[i].engineType, results[i].exteriorRefurbishment, results[i].ferryPrice, results[i].interiorRefurbishment, results[i].internalId, results[i].lastCreated, results[i].lastLocation, results[i].locked, results[i].manufactureModel, results[i].maxFlightLevel, results[i].mdlCode, results[i].mfrCode, results[i].overnightCharge, results[i].ownedBy, results[i].ownerPrice, results[i].price, results[i].source, results[i].transientRadius]});
-}
+// IMPORTANT: column names are CASE INSENSITIVE when running cql queries, unless if you always enclose them in quotes; it might be better to simply snake_case them
+// const AircraftModel = models.loadSchema('AircraftModel', {
+//   fields: {
+//     id: {
+//       type: 'uuid',
+//       default: {'$db_function': 'uuid()'}
+//     },
+//     overrideName: 'text',
+//     //TODO icao: { type: String, ref:"AircraftPerformance", index: true },
+//     averageSpeed: 'float',
+//     aircraftClass: 'float',
+//     defaultHourly: 'float',
+//     defaultSeats: 'int',
+//     lastCreated: 'date',
+//     locked: 'boolean',
+//     createdAt: {
+//         type: "timestamp",
+//         default: {"$db_function": "toTimestamp(now())"}
+//     },
+//     updatedAt: { // TODO ensure this prop gets manually updated every time a row gets updated
+//         type: "timestamp"
+//     }
+//   },
+//   key: ['id'],
+//   table_name: 'aircraft_models',
+//   indexes: ['overrideName', 'aircraftClass', 'lastCreated', 'locked']
+// });
+//
+// AircraftModel.syncDB(function(err, result) {
+//   if(err) throw err;
+//   console.log('DB sync successful (aircraft_models)');
+// });
+//
+//
+// const Aircraft = models.loadSchema('Aircraft', {
+//   fields: {
+//     id: 'text',
+//     deviceId: 'text',
+//     internalId: 'text',
+//     manufactureModel : { type: 'text', default: ''},
+//     capacity: 'int', // User input
+//     price: 'int',
+//     ferryPrice: 'int',
+//     ownerPrice: 'int',
+//     cruiseSpeed: 'float',
+//     maxFlightLevel: 'float',
+//     engineType: 'int',
+//     alias: {type: 'text', default: ''},
+//     availableForCharter: {type: 'boolean', default: false},
+//     ownedBy: 'int',
+//     displayName:  'text',
+//     overnightCharge: 'float',
+//     transientRadius: 'float',
+//     interiorRefurbishment: 'date',
+//     exteriorRefurbishment: 'date',
+//     disabled: 'boolean',
+//     mdlCode: 'text',
+//     mfrCode: 'text',
+//     source: 'text',
+//     lastLocation: 'float',
+//     lastCreated: 'date',
+//     locked: 'boolean'
+//   },
+//   key: ['id'],
+//   table_name: 'aircraft',
+//   indexes: ['deviceId']
+// });
+//
+// Aircraft.syncDB(function(err, result) {
+//   if(err) throw err;
+//   console.log('DB sync successful (aircraft)');
+// });
