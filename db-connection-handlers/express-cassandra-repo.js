@@ -10,11 +10,21 @@ const requireAll = require('require-all');
 module.exports = function initialize(params)  {
 
   const models = requireAll({
-    dirname: __dirname + '../models'
+    dirname: __dirname + '/../models'
   });
-  console.log(models);
-  return 'test end';
-  return ExpressCassandra.createClient({
+
+  // extract udts from each model's userDefinedTypes property; also extract model names
+  const extractedUdts = {};
+  const modelNames = [];
+  for(let outer in models) {
+    if(models[outer].ignore) continue;
+    modelNames.push(models[outer].modelName);
+    for(let inner in models[outer].userDefinedTypes) {
+      extractedUdts[inner] = models[outer].userDefinedTypes[inner];
+    }
+  }
+
+  const cassandraModelsWrapper = ExpressCassandra.createClient({
     clientOptions: {
       contactPoints: params.contactPoints,
       protocolOptions: {port: params.port},
@@ -27,14 +37,16 @@ module.exports = function initialize(params)  {
         replication_factor: 1
       },
       migration: 'safe',
-      udts: {} // TODO
+      udts: extractedUdts
     }
   });
+
+  // TODO loop through modelNames and sync each model
+
+  return cassandraModelsWrapper;
 };
 
-Airport.syncDB(function(err, result) {
-  if(err) throw err;
-  console.log('DB sync successful (airports)');
-});
-
-module.exports = models;
+// Airport.syncDB(function(err, result) {
+//   if(err) throw err;
+//   console.log('DB sync successful (airports)');
+// });

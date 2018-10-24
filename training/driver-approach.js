@@ -40,3 +40,5 @@ client.execute(preparedInsertQuery2, [id2, 'peca pecic', 31], {prepare: true}, f
   console.log('INSERTION RESULT:');
   console.log(result);
 });
+
+// NOTE: inserting a set through cql is done using {}, NOT [] (very intuitive, thank you Cassandra.. - notice the sarcasm)
