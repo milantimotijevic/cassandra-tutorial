@@ -1,85 +1,16 @@
-// const mongoRepo = require('./mongodb-repo.js');
-
-// mongoRepo.AircraftModel.find({}, function(err, result) {
-//   if(err) throw err;
-//   console.log(result);
-// });
-//
-// mongoRepo.Aircraft.find({}, function(err, result) {
-//   if(err) throw err;
-//   console.log(result);
-// });
-
-// mongoRepo.Airport.find({}, function(err, result) {
-//   if(err) throw err;
-//   console.log(result);
-// });
-
-// mongoRepo.Airport.find().limit(100000).exec(function(err, result) {
-//   if(err) throw err;
-//   console.log('Results fetched');
-// });
-
-
-// const MongoClient = require('mongodb').MongoClient;
-// MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
-//     const dbo = db.db("airlines");
-//     dbo.collection('aircraft_models').find({}).limit(5).toArray(function(err, results) {
-//       if(err) throw err;
-//       // CASSANDRA START
-//       const query = 'INSERT INTO aircraft_models("updatedAt", "createdAt", "lastCreated") VALUES(?, ?, ?)';
-//       const queries = [];
-//       for(var i = 0; i < results.length; i++) {
-//         queries.push({query: query, params: [results[i].updatedAt, results[i].createdAt, results[i].lastCreated]});
-//       }
-//       const cassandra = require('cassandra-driver');
-//       const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
-//       client.batch(queries, {prepare: true}, function(err) {
-//         if(err) {
-//           console.log('something has gone terribly wrong...');
-//           console.log(err);
-//         }
-//       });
-//       // CASSANDRA END
-//     });
-//   });
-
-// const MongoClient = require('mongodb').MongoClient;
-// MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
-//     const dbo = db.db("airlines");
-//     dbo.collection('aircrafts').find({}).limit(300).toArray(function(err, results) {
-//       console.log(results[0]);
-//       if(err) throw err;
-//       // CASSANDRA START
-//       const query = 'INSERT INTO aircraft("id", "details") VALUES(?, ?)';
-//       const queries = [];
-//       for(var i = 0; i < results.length; i++) {
-//         queries.push({query: query, params: [results[i]._id, results[i].details]});
-//       }
-//       const cassandra = require('cassandra-driver');
-//       const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
-//       client.batch(queries, {prepare: true}, function(err) {
-//         if(err) {
-//           console.log('something has gone terribly wrong...');
-//           console.log(err);
-//         }
-//         console.log('DONE');
-//       });
-//       // CASSANDRA END
-//     });
-//   });
-
-const models = require('./cassandra-repo');
-const Airport = models.instance.Airport;
-Airport.find({}, {raw: true}, function(err, results) {
-  console.log(results[0]);
-});
-
-//startMigration();
-
-// wrapper for everything that happens after schema gets synced
-function startMigration() {
-  const schemaFields = Airport._driver._properties.schema.fields;
+/**
+  params.cassandraModel - Express Cassandra model Object
+  params.cassandraTableName - Target table name (string)
+  params.mongoConnectionUrl - Connection URL for MongoDB (string)
+  params.mongoDbName - Source database name (string)
+  params.mongoCollectionName - Source collection name (string)
+  params.cassandraContactPoints - Array of strings containing URLs used for establishing connection with Cassandra (e.g. ['localhost'])
+  params.cassandraKeyspaceName - Name of target database name ('keyspace' is a just a fancy name for 'database')
+*/
+module.exports = function startMigration(params) {
+  const migrationDescription = `MongoDB($params.mongoConnectionUrl/$params.mongoDbName/$params.mongoCollectionName) -> Cassandra($params.cassandraContactPoints/$params.cassandraKeyspaceName/$params.cassandraTableName)`;
+  console.log('Migration commencing: ' + migrationDescription);
+  const schemaFields = params.cassandraModel._driver._properties.schema.fields;
   const fields = [];
   for(var prop in schemaFields) {
     fields.push(prop);
@@ -90,7 +21,7 @@ function startMigration() {
   	if(i !== fields.length - 1) questionMarksString += '?, ';
   	else questionMarksString += '?)';
   }
-  const query = 'INSERT INTO airports' + fieldsString + 'VALUES' + questionMarksString;
+  const query = 'INSERT INTO ' + params.cassandraTableName + fieldsString + 'VALUES' + questionMarksString;
   const cassandra = require('cassandra-driver');
 
   const Uuid = cassandra.types.Uuid;
@@ -103,9 +34,9 @@ function startMigration() {
   }
 
   const MongoClient = require('mongodb').MongoClient;
-  MongoClient.connect("mongodb://localhost:27017/", function(mongoerr, db) {
-      const dbo = db.db("airlines");
-      dbo.collection('airports').find({}).toArray(function(err, results) {
+  MongoClient.connect(params.mongoConnectionUrl, function(mongoerr, db) {
+      const dbo = db.db(params.mongoDbName);
+      dbo.collection(params.mongoCollectionName).find({}).toArray(function(err, results) {
         if(err) throw err;
         // CASSANDRA START
         const batches = [];
@@ -121,7 +52,7 @@ function startMigration() {
         }
         var batchInsertionCounter = 0;
 
-        const client = new cassandra.Client({contactPoints: ['localhost'], keyspace: 'airlines'});
+        const client = new cassandra.Client({contactPoints: params.cassandraContactPoints, keyspace: params.cassandraKeyspaceName});
 
         function processNextBatch() {
           const queries = [];
@@ -139,14 +70,12 @@ function startMigration() {
               batchInsertionCounter++;
               processNextBatch();
             } else {
-              console.log('All batches complete');
+              console.log('Migration complete: ' + migrationDescription);
             }
           });
         }
-
         processNextBatch(); // kicking it off
-
         // CASSANDRA END
       });
     });
-}
+};
