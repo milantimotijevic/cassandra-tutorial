@@ -7,7 +7,7 @@ const requireAll = require('require-all');
   params.keyspaceName - Keyspace name; keyspace means database; string
   returns: Cassandra's models wrapper object - can extact specific models from it (i.e. 'Airports')
 */
-module.exports = function initialize(params)  {
+module.exports = function initialize(params, cb)  {
   const models = requireAll({
     dirname: __dirname + '/../models'
   });
@@ -38,7 +38,8 @@ module.exports = function initialize(params)  {
     }
   });
 
-  for(let prop in models) {
+  const modelsKeys = Object.keys(models);
+  modelsKeys.forEach(function(prop, index) {
     const modelName = models[prop].modelName;
     cassandraModelsWrapper.loadSchema(modelName, models[prop].schemaDefinition);
     console.log('Loaded schema for ' + modelName);
@@ -47,11 +48,12 @@ module.exports = function initialize(params)  {
         console.log('Error syncing table for ' + modelName);
       } else {
         console.log('Synced table for ' + modelName);
+        if(index === modelsKeys.length - 1) {
+          cb();
+        }
       }
     });
-  }
-
-  return cassandraModelsWrapper;
+  });
 };
 
 // Airport.syncDB(function(err, result) {

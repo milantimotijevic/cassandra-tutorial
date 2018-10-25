@@ -18,4 +18,7 @@ cassandraConnector({
   contactPoints: ['localhost'],
   port: 9042,
   keyspaceName: 'airlines'
+}, function() {
+  console.log('all done');
+  process.exit();
 });
