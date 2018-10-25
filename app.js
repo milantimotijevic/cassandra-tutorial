@@ -7,7 +7,7 @@
 //   cassandraModel: Airport,
 //   cassandraTableName: 'airports',
 //   mongoConnectionUrl: 'mongodb://localhost:27017/',
-//   mongoDbName: 'airlines',
+//   mongoDatabaseName: 'airlines',
 //   mongoCollectionName: 'airports',
 //   cassandraContactPoints: ['localhost'],
 //   cassandraKeyspaceName: 'airlines'

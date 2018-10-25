@@ -1,5 +1,6 @@
 const ExpressCassandra = require('express-cassandra');
 const requireAll = require('require-all');
+const migrate = require('../migration/migrator');
 
 /**
   params.contactPoints - String array containing DB connection URLs
@@ -40,23 +41,25 @@ module.exports = function initialize(params, cb)  {
 
   const modelsKeys = Object.keys(models);
   modelsKeys.forEach(function(prop, index) {
-    const modelName = models[prop].modelName;
-    cassandraModelsWrapper.loadSchema(modelName, models[prop].schemaDefinition);
-    console.log('Loaded schema for ' + modelName);
-    cassandraModelsWrapper.instance[modelName].syncDB(function(err, result) {
+    const currentModel = models[prop];
+    cassandraModelsWrapper.loadSchema(currentModel.modelName, currentModel.schemaDefinition);
+    console.log('Loaded schema for ' + currentModel.modelName);
+    const cassandraModel = cassandraModelsWrapper.instance[currentModel.modelName];
+    cassandraModel.syncDB(function(err, result) {
       if(err) {
-        console.log('Error syncing table for ' + modelName);
+        console.log('Error syncing table for ' + currentModel.modelName);
       } else {
-        console.log('Synced table for ' + modelName);
-        if(index === modelsKeys.length - 1) {
-          cb();
-        }
+        console.log('Synced table for ' + currentModel.modelName + '. Preparing to migrate...');
+        migrate({
+          cassandraModel: cassandraModel,
+          cassandraTableName: currentModel.schemaDefinition.table_name,
+          mongoConnectionUrl: currentModel.migrationData.mongoConnectionUrl,
+          mongoDatabaseName: currentModel.migrationData.mongoDatabaseName,
+          mongoCollectionName: currentModel.migrationData.mongoCollectionName,
+          cassandraContactPoints: params.contactPoints, // TODO see if port number needs to be worked into this
+          cassandraKeyspaceName: params.keyspaceName
+        });
       }
     });
   });
 };
-
-// Airport.syncDB(function(err, result) {
-//   if(err) throw err;
-//   console.log('DB sync successful (airports)');
-// });

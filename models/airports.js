@@ -1,4 +1,9 @@
 module.exports = {
+  migrationData: {
+    mongoConnectionUrl: 'mongodb://localhost:27017/',
+    mongoDatabaseName: 'airlines',
+    mongoCollectionName: 'airports'
+  },
   modelName: 'Airport',
   userDefinedTypes: {
     airportAttendancePeriod: {

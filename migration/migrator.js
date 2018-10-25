@@ -2,13 +2,13 @@
   params.cassandraModel - Express Cassandra model Object
   params.cassandraTableName - Target table name (string)
   params.mongoConnectionUrl - Connection URL for MongoDB (string)
-  params.mongoDbName - Source database name (string)
+  params.mongoDatabaseName - Source database name (string)
   params.mongoCollectionName - Source collection name (string)
   params.cassandraContactPoints - Array of strings containing URLs used for establishing connection with Cassandra (e.g. ['localhost'])
   params.cassandraKeyspaceName - Name of target database name ('keyspace' is a just a fancy name for 'database')
 */
 module.exports = function startMigration(params) {
-  const migrationDescription = `MongoDB($params.mongoConnectionUrl/$params.mongoDbName/$params.mongoCollectionName) -> Cassandra($params.cassandraContactPoints/$params.cassandraKeyspaceName/$params.cassandraTableName)`;
+  const migrationDescription = `MongoDB($params.mongoConnectionUrl/$params.mongoDatabaseName/$params.mongoCollectionName) -> Cassandra($params.cassandraContactPoints/$params.cassandraKeyspaceName/$params.cassandraTableName)`;
   console.log('Migration commencing: ' + migrationDescription);
   const schemaFields = params.cassandraModel._driver._properties.schema.fields;
   const fields = [];
@@ -35,7 +35,7 @@ module.exports = function startMigration(params) {
 
   const MongoClient = require('mongodb').MongoClient;
   MongoClient.connect(params.mongoConnectionUrl, function(mongoerr, db) {
-      const dbo = db.db(params.mongoDbName);
+      const dbo = db.db(params.mongoDatabaseName);
       dbo.collection(params.mongoCollectionName).find({}).toArray(function(err, results) {
         if(err) throw err;
         // CASSANDRA START
