@@ -2,6 +2,10 @@ module.exports = {
   mongoCollectionName: 'airports',
   modelName: 'Airport',
   userDefinedTypes: {
+    supportedAircraft: {
+        icao: 'text',
+        class: 'int'
+    },
     airportAttendancePeriod: {
         f: 'int',
         t: 'int'

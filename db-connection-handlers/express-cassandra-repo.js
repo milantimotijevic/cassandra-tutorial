@@ -1,7 +1,7 @@
 const ExpressCassandra = require('express-cassandra');
 const cassandra = require('cassandra-driver');
 const requireAll = require('require-all');
-const migrate = require('../migration/migrator');
+const migrateTable = require('../migration/migrator');
 const connectionsConfig = require('../connections-config');
 
 module.exports = function initialize(cb)  {
@@ -35,27 +35,43 @@ module.exports = function initialize(cb)  {
     }
   });
 
-  const cassandraClient = new cassandra.Client({contactPoints: connectionsConfig.cassandra.contactPoints, keyspace: connectionsConfig.cassandra.keyspaceName}); // will pass the same connection to migrator (this one uses native driver, NOT odm)
   const modelsKeys = Object.keys(models);
   modelsKeys.forEach(function(prop, index) {
     const currentModel = models[prop];
     cassandraModelsWrapper.loadSchema(currentModel.modelName, currentModel.schemaDefinition);
     console.log('Loaded schema for ' + currentModel.modelName);
     const cassandraModel = cassandraModelsWrapper.instance[currentModel.modelName];
-    cassandraModel.syncDB(function(err, result) {
+    cassandraModel.syncDB(function(err, result) { // TODO change order of actions so migration takes place after ALL tables are synced
       if(err) {
         console.log('Error syncing table for ' + currentModel.modelName);
+        console.log(err);
       } else {
-        console.log('Synced table for ' + currentModel.modelName + '. Preparing to migrate...');
-        migrate({
-          cassandraModel: cassandraModel,
-          cassandraClient: cassandraClient,
-          cassandraTableName: currentModel.schemaDefinition.table_name,
-          mongoConnectionUrl: connectionsConfig.mongo.connectionUrl,
-          mongoDatabaseName: connectionsConfig.mongo.databaseName,
-          mongoCollectionName: currentModel.mongoCollectionName
-        });
+        console.log('Synced table for ' + currentModel.modelName);
+        if(index === modelsKeys.length - 1) {
+          console.log('All tables synced');
+          startMigration();
+        }
       }
     });
   });
+
+  // deliberately postponing migration till after all tables have been synced
+  function startMigration() {
+    console.log('Preparing to migrate...');
+    const cassandraClient = new cassandra.Client({contactPoints: connectionsConfig.cassandra.contactPoints, keyspace: connectionsConfig.cassandra.keyspaceName}); // will pass the same connection to migrator (this one uses native driver, NOT odm)
+    modelsKeys.forEach(function(prop, index) {
+      const currentModel = models[prop];
+      const cassandraModel = cassandraModelsWrapper.instance[currentModel.modelName];
+
+      migrateTable({
+        cassandraModel: cassandraModel,
+        cassandraClient: cassandraClient,
+        cassandraTableName: currentModel.schemaDefinition.table_name,
+        mongoConnectionUrl: connectionsConfig.mongo.connectionUrl,
+        mongoDatabaseName: connectionsConfig.mongo.databaseName,
+        mongoCollectionName: currentModel.mongoCollectionName
+      });
+    });
+  }
+
 };

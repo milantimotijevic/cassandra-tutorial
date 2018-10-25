@@ -10,8 +10,8 @@ const Uuid = cassandra.types.Uuid;
   params.mongoCollectionName - Source collection name (string)
 */
 module.exports = function startMigration(params) {
-  const migrationDescription = `MongoDB($params.mongoConnectionUrl/$params.mongoDatabaseName/$params.mongoCollectionName) -> Cassandra($params.cassandraContactPoints/$params.cassandraKeyspaceName/$params.cassandraTableName)`;
-  console.log('Migration commencing: ' + migrationDescription);
+  const migrationDescription = 'MongoDB(' + params.mongoCollectionName + ') -> Cassandra(' + params.cassandraTableName + ')';
+  console.log('Migrating table: ' + migrationDescription);
   const schemaFields = params.cassandraModel._driver._properties.schema.fields;
   const fields = [];
   for(var prop in schemaFields) {
@@ -33,7 +33,7 @@ module.exports = function startMigration(params) {
   }
 
   const MongoClient = require('mongodb').MongoClient; // TODO extract a single connection object and reuse it; might want to use events (there's a node module for that, look it up) to avoid having to enclose everything in connection's callback
-  MongoClient.connect(params.mongoConnectionUrl, function(mongoerr, db) {
+  MongoClient.connect(params.mongoConnectionUrl, {useNewUrlParser: true}, function(mongoerr, db) {
       const dbo = db.db(params.mongoDatabaseName);
       dbo.collection(params.mongoCollectionName).find({}).toArray(function(err, results) {
         db.close();
@@ -67,7 +67,7 @@ module.exports = function startMigration(params) {
               batchInsertionCounter++;
               processNextBatch();
             } else {
-              console.log('Migration complete: ' + migrationDescription);
+              console.log('Table migration complete: ' + migrationDescription);
             }
           });
         }
