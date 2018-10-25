@@ -57,7 +57,8 @@ module.exports = function initialize(cb)  {
 
   // deliberately postponing migration till after all tables have been synced
   function startMigration() {
-    console.log('Preparing to migrate...');
+    const migrationDescription = 'MongoDB(' + connectionsConfig.mongo.connectionUrl + ' | ' + connectionsConfig.mongo.databaseName + ') -> Cassandra(' + connectionsConfig.cassandra.contactPoints + ':' + connectionsConfig.cassandra.port + ' | ' + connectionsConfig.cassandra.keyspaceName + ')';
+    console.log('Migration starting: ' + migrationDescription);
     const cassandraClient = new cassandra.Client({contactPoints: connectionsConfig.cassandra.contactPoints, keyspace: connectionsConfig.cassandra.keyspaceName}); // will pass the same connection to migrator (this one uses native driver, NOT odm)
     modelsKeys.forEach(function(prop, index) {
       const currentModel = models[prop];
@@ -71,7 +72,7 @@ module.exports = function initialize(cb)  {
         mongoDatabaseName: connectionsConfig.mongo.databaseName,
         mongoCollectionName: currentModel.mongoCollectionName
       });
-    });
+    }); // TODO add 'migration finished' message
   }
 
 };
