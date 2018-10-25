@@ -1,11 +1,13 @@
+const cassandra = require('cassandra-driver');
+const Uuid = cassandra.types.Uuid;
+
 /**
   params.cassandraModel - Express Cassandra model Object
+  params.cassandraClient - Cassandra connection object (using native driver, NOT odm)
   params.cassandraTableName - Target table name (string)
   params.mongoConnectionUrl - Connection URL for MongoDB (string)
   params.mongoDatabaseName - Source database name (string)
   params.mongoCollectionName - Source collection name (string)
-  params.cassandraContactPoints - Array of strings containing URLs used for establishing connection with Cassandra (e.g. ['localhost'])
-  params.cassandraKeyspaceName - Name of target database name ('keyspace' is a just a fancy name for 'database')
 */
 module.exports = function startMigration(params) {
   const migrationDescription = `MongoDB($params.mongoConnectionUrl/$params.mongoDatabaseName/$params.mongoCollectionName) -> Cassandra($params.cassandraContactPoints/$params.cassandraKeyspaceName/$params.cassandraTableName)`;
@@ -22,23 +24,20 @@ module.exports = function startMigration(params) {
   	else questionMarksString += '?)';
   }
   const query = 'INSERT INTO ' + params.cassandraTableName + fieldsString + 'VALUES' + questionMarksString;
-  const cassandra = require('cassandra-driver');
-
-  const Uuid = cassandra.types.Uuid;
   var queryParamsString = '[Uuid.random()';
 
-// deliberately starting from 1 (skipping id)
+  // deliberately starting from 1 (skipping id)
   for(var i = 1; i < fields.length; i++) {
     queryParamsString += ', results[i].' + fields[i];
     if(i === fields.length - 1) queryParamsString += ']';
   }
 
-  const MongoClient = require('mongodb').MongoClient;
+  const MongoClient = require('mongodb').MongoClient; // TODO extract a single connection object and reuse it; might want to use events (there's a node module for that, look it up) to avoid having to enclose everything in connection's callback
   MongoClient.connect(params.mongoConnectionUrl, function(mongoerr, db) {
       const dbo = db.db(params.mongoDatabaseName);
       dbo.collection(params.mongoCollectionName).find({}).toArray(function(err, results) {
+        db.close();
         if(err) throw err;
-        // CASSANDRA START
         const batches = [];
         const batchSizeThreshold = 40;
         const numberOfBatches = Math.ceil(results.length / batchSizeThreshold);
@@ -52,14 +51,12 @@ module.exports = function startMigration(params) {
         }
         var batchInsertionCounter = 0;
 
-        const client = new cassandra.Client({contactPoints: params.cassandraContactPoints, keyspace: params.cassandraKeyspaceName});
-
         function processNextBatch() {
           const queries = [];
           for(var i = 0; i < batches[batchInsertionCounter].length; i++) {
             queries.push({query: query, params: eval(queryParamsString)});
           }
-          client.batch(queries, {prepare: true}, function(err) {
+          params.cassandraClient.batch(queries, {prepare: true}, function(err) {
             const batchInfo = 'batch ' + (batchInsertionCounter + 1) + '/' + batches.length + ', batch size: ' + batches[batchInsertionCounter].length;
             if(err) {
               console.log('Error completing ' + batchInfo + ':');
@@ -75,7 +72,6 @@ module.exports = function startMigration(params) {
           });
         }
         processNextBatch(); // kicking it off
-        // CASSANDRA END
       });
     });
 };

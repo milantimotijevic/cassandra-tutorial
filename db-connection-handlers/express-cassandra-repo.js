@@ -1,14 +1,10 @@
 const ExpressCassandra = require('express-cassandra');
+const cassandra = require('cassandra-driver');
 const requireAll = require('require-all');
 const migrate = require('../migration/migrator');
+const connectionsConfig = require('../connections-config');
 
-/**
-  params.contactPoints - String array containing DB connection URLs
-  params.port - DB connection port (int)
-  params.keyspaceName - Keyspace name; keyspace means database; string
-  returns: Cassandra's models wrapper object - can extact specific models from it (i.e. 'Airports')
-*/
-module.exports = function initialize(params, cb)  {
+module.exports = function initialize(cb)  {
   const models = requireAll({
     dirname: __dirname + '/../models'
   });
@@ -24,9 +20,9 @@ module.exports = function initialize(params, cb)  {
 
   const cassandraModelsWrapper = ExpressCassandra.createClient({
     clientOptions: {
-      contactPoints: params.contactPoints,
-      protocolOptions: {port: params.port},
-      keyspace: params.keyspaceName,
+      contactPoints: connectionsConfig.cassandra.contactPoints,
+      protocolOptions: {port: connectionsConfig.cassandra.port},
+      keyspace: connectionsConfig.cassandra.keyspaceName,
       queryOptions: {consistency: ExpressCassandra.consistencies.one}
     },
     ormOptions: {
@@ -39,6 +35,7 @@ module.exports = function initialize(params, cb)  {
     }
   });
 
+  const cassandraClient = new cassandra.Client({contactPoints: connectionsConfig.cassandra.contactPoints, keyspace: connectionsConfig.cassandra.keyspaceName}); // will pass the same connection to migrator (this one uses native driver, NOT odm)
   const modelsKeys = Object.keys(models);
   modelsKeys.forEach(function(prop, index) {
     const currentModel = models[prop];
@@ -52,12 +49,11 @@ module.exports = function initialize(params, cb)  {
         console.log('Synced table for ' + currentModel.modelName + '. Preparing to migrate...');
         migrate({
           cassandraModel: cassandraModel,
+          cassandraClient: cassandraClient,
           cassandraTableName: currentModel.schemaDefinition.table_name,
-          mongoConnectionUrl: currentModel.migrationData.mongoConnectionUrl,
-          mongoDatabaseName: currentModel.migrationData.mongoDatabaseName,
-          mongoCollectionName: currentModel.migrationData.mongoCollectionName,
-          cassandraContactPoints: params.contactPoints, // TODO see if port number needs to be worked into this
-          cassandraKeyspaceName: params.keyspaceName
+          mongoConnectionUrl: connectionsConfig.mongo.connectionUrl,
+          mongoDatabaseName: connectionsConfig.mongo.databaseName,
+          mongoCollectionName: currentModel.mongoCollectionName
         });
       }
     });

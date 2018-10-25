@@ -14,11 +14,7 @@
 // });
 
 const cassandraConnector = require('./db-connection-handlers/express-cassandra-repo');
-cassandraConnector({
-  contactPoints: ['localhost'],
-  port: 9042,
-  keyspaceName: 'airlines'
-}, function() {
+cassandraConnector(function() {
   console.log('all done');
   process.exit();
 });
