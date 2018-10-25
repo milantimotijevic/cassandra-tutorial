@@ -8,17 +8,14 @@ const requireAll = require('require-all');
   returns: Cassandra's models wrapper object - can extact specific models from it (i.e. 'Airports')
 */
 module.exports = function initialize(params)  {
-
   const models = requireAll({
     dirname: __dirname + '/../models'
   });
 
-  // extract udts from each model's userDefinedTypes property; also extract model names
+  // extract udts from each model's userDefinedTypes property
   const extractedUdts = {};
-  const modelNames = [];
   for(let outer in models) {
     if(models[outer].ignore) continue;
-    modelNames.push(models[outer].modelName);
     for(let inner in models[outer].userDefinedTypes) {
       extractedUdts[inner] = models[outer].userDefinedTypes[inner];
     }
@@ -41,7 +38,18 @@ module.exports = function initialize(params)  {
     }
   });
 
-  // TODO loop through modelNames and sync each model
+  for(let prop in models) {
+    const modelName = models[prop].modelName;
+    cassandraModelsWrapper.loadSchema(modelName, models[prop].schemaDefinition);
+    console.log('Loaded schema for ' + modelName);
+    cassandraModelsWrapper.instance[modelName].syncDB(function(err, result) {
+      if(err) {
+        console.log('Error syncing table for ' + modelName);
+      } else {
+        console.log('Synced table for ' + modelName);
+      }
+    });
+  }
 
   return cassandraModelsWrapper;
 };
