@@ -12,8 +12,6 @@ module.exports = function initialize(params)  {
   const models = requireAll({
     dirname: __dirname + '../models'
   });
-  console.log(models);
-  return 'test end';
   return ExpressCassandra.createClient({
     clientOptions: {
       contactPoints: params.contactPoints,
